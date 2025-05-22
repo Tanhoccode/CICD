@@ -17,9 +17,9 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push Docker image
         run: |
-          cd /home/ubuntu/CICD_Docker
-          docker build --no-cache -t <your-dockerhub-username>/nest-docker:latest .
-          docker push <your-dockerhub-username>/nest-docker:latest
+          cd CICD_Docker
+          docker build --no-cache -t minhtannguyenzz/nest-docker:latest .
+          docker push minhtannguyenzz/nest-docker:latest
           echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
           chmod 400 key.pem
       - name: Deploy to EC2
@@ -33,6 +33,6 @@ jobs:
             docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
             docker stop nest-container || true
             docker rm nest-container || true
-            docker pull <your-dockerhub-username>/nest-docker:latest
-            docker run -d --name nest-container -p 3000:3000 <your-dockerhub-username>/nest-docker:latest
+            docker pull minhtannguyenzz/nest-docker:latest
+            docker run -d --name nest-container -p 3000:3000 minhtannguyenzz/nest-docker:latest
           EOF

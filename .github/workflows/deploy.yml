@@ -1,31 +1,38 @@
-name: Deploy NestJS App
-
+name: Deploy to EC2
 on:
   push:
-    branches:
-      - master
-
+    branches: [master]
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout source
-      uses: actions/checkout@v3
-
-    - name: Set up SSH
-      uses: webfactory/ssh-agent@v0.7.0
-      with:
-        ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-
-    - name: Deploy to EC2
-      run: |
-        ssh -o StrictHostKeyChecking=no ubuntu@13.251.16.105 << 'EOF'
-          cd ~/my-nest-app
-          git pull origin main
-          docker stop nest-container || true
-          docker rm nest-container || true
-          docker rmi nest-docker || true
-          docker build -t nest-docker .
-          docker run -d -p 3000:3000 --name nest-container nest-docker
-        EOF
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push Docker image
+        run: |
+          cd /home/ubuntu/CICD_Docker
+          docker build --no-cache -t <your-dockerhub-username>/nest-docker:latest .
+          docker push <your-dockerhub-username>/nest-docker:latest
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
+          chmod 400 key.pem
+      - name: Deploy to EC2
+        env:
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          EC2_HOST: 13.251.16.105
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@$EC2_HOST << 'EOF'
+            mkdir -p ~/CICD_Docker
+            cd ~/CICD_Docker
+            docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+            docker stop nest-container || true
+            docker rm nest-container || true
+            docker pull <your-dockerhub-username>/nest-docker:latest
+            docker run -d --name nest-container -p 3000:3000 <your-dockerhub-username>/nest-docker:latest
+          EOF
